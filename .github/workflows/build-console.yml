@@ -38,16 +38,20 @@ jobs:
 
       - name: Clone Hasura GraphQL Engine
         run: |
-          echo "📦 Cloning Hasura GraphQL Engine (frontend only)..."
+          echo "📦 Cloning Hasura GraphQL Engine (console only)..."
           git clone --depth 1 --filter=blob:none --sparse https://github.com/hasura/graphql-engine.git temp_hasura
           cd temp_hasura
-          git sparse-checkout set frontend
+          git sparse-checkout set console
           
           # 如果指定了特定版本，切换到该版本
           if [ "${{ steps.hasura_version.outputs.version }}" != "master" ]; then
             git fetch --depth 1 origin tag ${{ steps.hasura_version.outputs.version }}
             git checkout ${{ steps.hasura_version.outputs.version }}
           fi
+          
+          # 检查目录结构
+          echo "📁 Directory structure:"
+          ls -la
 
       - name: Setup Yarn
         run: |
@@ -55,19 +59,19 @@ jobs:
           corepack prepare yarn@stable --activate
 
       - name: Check package.json
-        working-directory: temp_hasura/frontend
+        working-directory: temp_hasura/console
         run: |
-          echo "� IChecking package.json scripts..."
+          echo "📋 Checking package.json scripts..."
           cat package.json | jq '.scripts' || cat package.json | grep -A 30 '"scripts"'
           
       - name: Install Hasura Console dependencies
-        working-directory: temp_hasura/frontend
+        working-directory: temp_hasura/console
         run: |
           echo "📦 Installing dependencies with Yarn..."
           yarn install
           
       - name: Build Hasura Console
-        working-directory: temp_hasura/frontend
+        working-directory: temp_hasura/console
         run: |
           echo "🔨 Building Hasura Console..."
           # 检查并运行可用的构建命令
@@ -90,20 +94,20 @@ jobs:
           echo "📦 Preparing release artifacts..."
           
           # 查找构建输出目录
-          if [ -d "temp_hasura/frontend/dist" ]; then
-            BUILD_DIR="temp_hasura/frontend/dist"
+          if [ -d "temp_hasura/console/dist" ]; then
+            BUILD_DIR="temp_hasura/console/dist"
             echo "✅ Found build output: $BUILD_DIR"
             BUILD_TYPE="static"
-          elif [ -d "temp_hasura/frontend/build" ]; then
-            BUILD_DIR="temp_hasura/frontend/build"
+          elif [ -d "temp_hasura/console/build" ]; then
+            BUILD_DIR="temp_hasura/console/build"
             echo "✅ Found build output: $BUILD_DIR"
             BUILD_TYPE="static"
-          elif [ -d "temp_hasura/frontend/static" ]; then
-            BUILD_DIR="temp_hasura/frontend/static"
+          elif [ -d "temp_hasura/console/static" ]; then
+            BUILD_DIR="temp_hasura/console/static"
             echo "✅ Found static output: $BUILD_DIR"
             BUILD_TYPE="static"
           else
-            BUILD_DIR="temp_hasura/frontend"
+            BUILD_DIR="temp_hasura/console"
             echo "⚠️  No build output found, using source directory"
             BUILD_TYPE="source"
           fi
@@ -157,9 +161,7 @@ jobs:
           body: |
             ## Hasura Console Build
             
-            基于 Hasura GraphQL Engine ${{ steps.hasura_version.outputs.version }} 的 Console 源码包（包含依赖）。
-            
-            **注意**: Hasura Console 是作为开发服务器运行的，此包包含完整的源码和 node_modules。
+            基于 Hasura GraphQL Engine ${{ steps.hasura_version.outputs.version }} 的 Console。
             
             ### 下载说明
             
@@ -176,15 +178,6 @@ jobs:
             unzip hasura-console.zip -d hasura-console
             ```
             
-            ### 使用说明
-            
-            下载后，在 hasura-console 目录中运行开发服务器：
-            
-            ```bash
-            cd hasura-console
-            yarn start
-            ```
-            
             ### 校验文件完整性
             
             ```bash
@@ -195,7 +188,6 @@ jobs:
             - Hasura 版本: ${{ steps.hasura_version.outputs.version }}
             - 打包时间: ${{ github.run_id }}
             - 构建环境: Ubuntu Latest, Node.js 18
-            - 包含内容: 源码 + node_modules
           files: |
             hasura-console.tar.gz
             hasura-console.tar.gz.sha256
