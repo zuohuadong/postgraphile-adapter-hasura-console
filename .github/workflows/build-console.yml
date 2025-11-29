@@ -68,7 +68,8 @@ jobs:
         working-directory: temp_hasura/console
         run: |
           echo "📦 Installing dependencies with Yarn..."
-          yarn install
+          # 允许 Yarn 更新 lockfile
+          yarn install --no-immutable || yarn install
           
       - name: Build Hasura Console
         working-directory: temp_hasura/console
