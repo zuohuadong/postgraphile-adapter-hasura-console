@@ -25,7 +25,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Get Hasura version
         id: hasura_version
@@ -38,10 +38,10 @@ jobs:
 
       - name: Clone Hasura GraphQL Engine
         run: |
-          echo "📦 Cloning Hasura GraphQL Engine (console only)..."
+          echo "📦 Cloning Hasura GraphQL Engine (frontend only)..."
           git clone --depth 1 --filter=blob:none --sparse https://github.com/hasura/graphql-engine.git temp_hasura
           cd temp_hasura
-          git sparse-checkout set console
+          git sparse-checkout set frontend
           
           # 如果指定了特定版本，切换到该版本
           if [ "${{ steps.hasura_version.outputs.version }}" != "master" ]; then
@@ -51,7 +51,7 @@ jobs:
           
           # 检查目录结构
           echo "📁 Directory structure:"
-          ls -la
+          ls -la frontend/
 
       - name: Setup Yarn
         run: |
@@ -59,32 +59,31 @@ jobs:
           corepack prepare yarn@stable --activate
 
       - name: Check package.json
-        working-directory: temp_hasura/console
+        working-directory: temp_hasura/frontend
         run: |
           echo "📋 Checking package.json scripts..."
           cat package.json | jq '.scripts' || cat package.json | grep -A 30 '"scripts"'
           
       - name: Install Hasura Console dependencies
-        working-directory: temp_hasura/console
+        working-directory: temp_hasura/frontend
         run: |
-          echo "📦 Installing dependencies with Yarn..."
-          # 允许 Yarn 更新 lockfile
-          yarn install --no-immutable || yarn install
+          echo "📦 Installing dependencies with npm..."
+          npm ci || npm install
           
       - name: Build Hasura Console
-        working-directory: temp_hasura/console
+        working-directory: temp_hasura/frontend
         run: |
           echo "🔨 Building Hasura Console..."
           # 检查并运行可用的构建命令
           if grep -q '"build"' package.json; then
             echo "Found 'build' script, running..."
-            yarn build
-          elif grep -q '"server:build"' package.json; then
-            echo "Found 'server:build' script, running..."
-            yarn server:build
-          elif grep -q '"webpack:build"' package.json; then
-            echo "Found 'webpack:build' script, running..."
-            yarn webpack:build
+            npm run build
+          elif grep -q '"build:prod"' package.json; then
+            echo "Found 'build:prod' script, running..."
+            npm run build:prod
+          elif grep -q '"build:production"' package.json; then
+            echo "Found 'build:production' script, running..."
+            npm run build:production
           else
             echo "⚠️  No build script found, will package source files"
             echo "BUILD_TYPE=source" >> $GITHUB_ENV
@@ -95,27 +94,27 @@ jobs:
           echo "📦 Preparing release artifacts..."
           
           # 调试：查看目录结构
-          echo "📁 Checking temp_hasura/console structure:"
-          ls -la temp_hasura/console/ || true
+          echo "📁 Checking temp_hasura/frontend structure:"
+          ls -la temp_hasura/frontend/ || true
           
           echo "📁 Checking for build directories:"
-          find temp_hasura/console -maxdepth 2 -type d -name "dist" -o -name "build" -o -name "static" || true
+          find temp_hasura/frontend -maxdepth 2 -type d -name "dist" -o -name "build" -o -name "static" || true
           
           # 查找构建输出目录
-          if [ -d "temp_hasura/console/dist" ]; then
-            BUILD_DIR="temp_hasura/console/dist"
+          if [ -d "temp_hasura/frontend/dist" ]; then
+            BUILD_DIR="temp_hasura/frontend/dist"
             echo "✅ Found build output: $BUILD_DIR"
             BUILD_TYPE="static"
-          elif [ -d "temp_hasura/console/build" ]; then
-            BUILD_DIR="temp_hasura/console/build"
+          elif [ -d "temp_hasura/frontend/build" ]; then
+            BUILD_DIR="temp_hasura/frontend/build"
             echo "✅ Found build output: $BUILD_DIR"
             BUILD_TYPE="static"
-          elif [ -d "temp_hasura/console/static" ]; then
-            BUILD_DIR="temp_hasura/console/static"
+          elif [ -d "temp_hasura/frontend/static" ]; then
+            BUILD_DIR="temp_hasura/frontend/static"
             echo "✅ Found static output: $BUILD_DIR"
             BUILD_TYPE="static"
           else
-            BUILD_DIR="temp_hasura/console"
+            BUILD_DIR="temp_hasura/frontend"
             echo "⚠️  No build output found, using source directory"
             BUILD_TYPE="source"
           fi
@@ -203,7 +202,8 @@ jobs:
             ### 构建信息
             - Hasura 版本: ${{ steps.hasura_version.outputs.version }}
             - 打包时间: ${{ github.run_id }}
-            - 构建环境: Ubuntu Latest, Node.js 18
+            - 构建环境: Ubuntu Latest, Node.js 20
+            - 源码路径: frontend/
           files: |
             hasura-console.tar.gz
             hasura-console.tar.gz.sha256

@@ -89,16 +89,44 @@ build_from_source() {
     git sparse-checkout set frontend
     cd ..
     
+    # 检查 frontend 目录是否存在
+    if [ ! -d "$TEMP_DIR/frontend" ]; then
+        echo "❌ 错误: frontend 目录不存在"
+        echo "仓库结构可能已更改，请检查 Hasura GraphQL Engine 仓库"
+        rm -rf "$TEMP_DIR"
+        exit 1
+    fi
+    
+    # 进入 frontend 目录并构建
+    echo "📦 安装依赖..."
+    cd "$TEMP_DIR/frontend"
+    npm ci || npm install
+    
+    echo "🔨 构建 Console..."
+    if grep -q '"build"' package.json; then
+        npm run build
+    elif grep -q '"build:prod"' package.json; then
+        npm run build:prod
+    else
+        echo "⚠️  未找到构建脚本，将复制源文件"
+    fi
+    
+    cd ../..
+    
     # 创建目标目录
     echo "📁 准备目标目录..."
     mkdir -p "$TARGET_DIR"
     
-    # 同步文件
-    echo "📋 同步文件到 $TARGET_DIR..."
-    if command -v rsync &> /dev/null; then
-        rsync -av --delete "$TEMP_DIR/frontend/" "$TARGET_DIR/"
+    # 查找构建输出
+    if [ -d "$TEMP_DIR/frontend/dist" ]; then
+        echo "📋 复制构建输出 (dist)..."
+        rsync -av --delete "$TEMP_DIR/frontend/dist/" "$TARGET_DIR/" 2>/dev/null || cp -r "$TEMP_DIR/frontend/dist/"* "$TARGET_DIR/"
+    elif [ -d "$TEMP_DIR/frontend/build" ]; then
+        echo "📋 复制构建输出 (build)..."
+        rsync -av --delete "$TEMP_DIR/frontend/build/" "$TARGET_DIR/" 2>/dev/null || cp -r "$TEMP_DIR/frontend/build/"* "$TARGET_DIR/"
     else
-        cp -r "$TEMP_DIR/frontend/"* "$TARGET_DIR/"
+        echo "📋 复制源文件..."
+        rsync -av --delete "$TEMP_DIR/frontend/" "$TARGET_DIR/" 2>/dev/null || cp -r "$TEMP_DIR/frontend/"* "$TARGET_DIR/"
     fi
     
     # 清理临时目录
@@ -106,9 +134,7 @@ build_from_source() {
     rm -rf "$TEMP_DIR"
     
     echo "✅ 同步完成！"
-    echo "📍 Hasura Console 代码已同步到: $TARGET_DIR"
-    echo ""
-    echo "⚠️  注意: 你可能需要在 $TARGET_DIR 目录中运行 npm install 和 npm run build"
+    echo "📍 Hasura Console 已安装到: $TARGET_DIR"
 }
 
 # 解析命令行参数
