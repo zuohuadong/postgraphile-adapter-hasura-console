@@ -27,6 +27,9 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Get Hasura version
         id: hasura_version
         run: |
@@ -67,8 +70,8 @@ jobs:
       - name: Install Hasura Console dependencies
         working-directory: temp_hasura/frontend
         run: |
-          echo "📦 Installing dependencies with npm..."
-          npm install
+          echo "📦 Installing dependencies with Yarn..."
+          yarn install
           
       - name: Build Hasura Console
         working-directory: temp_hasura/frontend
@@ -77,13 +80,13 @@ jobs:
           # 检查并运行可用的构建命令
           if grep -q '"build"' package.json; then
             echo "Found 'build' script, running..."
-            npm run build
+            yarn build
           elif grep -q '"build:prod"' package.json; then
             echo "Found 'build:prod' script, running..."
-            npm run build:prod
+            yarn build:prod
           elif grep -q '"build:production"' package.json; then
             echo "Found 'build:production' script, running..."
-            npm run build:production
+            yarn build:production
           else
             echo "⚠️  No build script found, will package source files"
             echo "BUILD_TYPE=source" >> $GITHUB_ENV

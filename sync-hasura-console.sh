@@ -97,16 +97,29 @@ build_from_source() {
         exit 1
     fi
     
+    # 检查 Yarn
+    if ! command -v yarn &> /dev/null; then
+        echo "⚠️  Yarn 未安装，尝试启用 corepack..."
+        if command -v corepack &> /dev/null; then
+            corepack enable
+        else
+            echo "❌ 错误: 需要 Yarn 来构建 Hasura Console"
+            echo "请安装 Yarn: npm install -g yarn 或启用 corepack: corepack enable"
+            rm -rf "$TEMP_DIR"
+            exit 1
+        fi
+    fi
+    
     # 进入 frontend 目录并构建
     echo "📦 安装依赖..."
     cd "$TEMP_DIR/frontend"
-    npm install
+    yarn install
     
     echo "🔨 构建 Console..."
     if grep -q '"build"' package.json; then
-        npm run build
+        yarn build
     elif grep -q '"build:prod"' package.json; then
-        npm run build:prod
+        yarn build:prod
     else
         echo "⚠️  未找到构建脚本，将复制源文件"
     fi
