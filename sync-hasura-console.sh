@@ -100,7 +100,7 @@ build_from_source() {
     # 进入 frontend 目录并构建
     echo "📦 安装依赖..."
     cd "$TEMP_DIR/frontend"
-    npm ci || npm install
+    npm install
     
     echo "🔨 构建 Console..."
     if grep -q '"build"' package.json; then
