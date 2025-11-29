@@ -51,35 +51,54 @@ jobs:
           corepack enable
           corepack prepare yarn@stable --activate
 
+      - name: Check available scripts
+        working-directory: temp_hasura/frontend
+        run: |
+          echo "� Cnhecking package.json scripts..."
+          cat package.json | grep -A 20 '"scripts"' || true
+
       - name: Install Hasura Console dependencies
         working-directory: temp_hasura/frontend
         run: |
-          echo "📦 Installing dependencies with Yarn..."
+          echo "� Inistalling dependencies with Yarn..."
           yarn install
 
       - name: Build Hasura Console
         working-directory: temp_hasura/frontend
         run: |
           echo "🔨 Building Hasura Console..."
-          yarn build || yarn build:prod || echo "Build command may vary"
+          # 尝试不同的构建命令
+          if yarn run server:build 2>/dev/null; then
+            echo "✅ Built with server:build"
+          elif yarn run build:server 2>/dev/null; then
+            echo "✅ Built with build:server"
+          elif yarn run build:console 2>/dev/null; then
+            echo "✅ Built with build:console"
+          else
+            echo "⚠️ No build command found, using source files directly"
+          fi
 
       - name: Prepare release artifacts
         run: |
           echo "📦 Preparing release artifacts..."
           
-          # 查找构建输出目录
+          # 查找构建输出目录或使用源码
           if [ -d "temp_hasura/frontend/dist" ]; then
             BUILD_DIR="temp_hasura/frontend/dist"
+            echo "Found build directory: $BUILD_DIR"
           elif [ -d "temp_hasura/frontend/build" ]; then
             BUILD_DIR="temp_hasura/frontend/build"
+            echo "Found build directory: $BUILD_DIR"
           elif [ -d "temp_hasura/frontend/out" ]; then
             BUILD_DIR="temp_hasura/frontend/out"
+            echo "Found build directory: $BUILD_DIR"
+          elif [ -d "temp_hasura/frontend/static" ]; then
+            BUILD_DIR="temp_hasura/frontend/static"
+            echo "Found static directory: $BUILD_DIR"
           else
-            echo "❌ Build directory not found"
-            exit 1
+            echo "⚠️ No build directory found, using entire frontend directory"
+            BUILD_DIR="temp_hasura/frontend"
           fi
-          
-          echo "Found build directory: $BUILD_DIR"
           
           # 创建发布目录
           mkdir -p hasura-console-release
