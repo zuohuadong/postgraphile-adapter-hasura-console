@@ -1,0 +1,193 @@
+name: Build Hasura Console
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      hasura_version:
+        description: 'Hasura version to build (e.g., v2.36.0 or master)'
+        required: false
+        default: 'master'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Get Hasura version
+        id: hasura_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.hasura_version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=master" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Clone Hasura GraphQL Engine
+        run: |
+          echo "📦 Cloning Hasura GraphQL Engine (frontend only)..."
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/hasura/graphql-engine.git temp_hasura
+          cd temp_hasura
+          git sparse-checkout set frontend
+          
+          # 如果指定了特定版本，切换到该版本
+          if [ "${{ steps.hasura_version.outputs.version }}" != "master" ]; then
+            git fetch --depth 1 origin tag ${{ steps.hasura_version.outputs.version }}
+            git checkout ${{ steps.hasura_version.outputs.version }}
+          fi
+
+      - name: Install Hasura Console dependencies
+        working-directory: temp_hasura/frontend
+        run: |
+          echo "📦 Installing dependencies..."
+          npm ci || npm install
+
+      - name: Build Hasura Console
+        working-directory: temp_hasura/frontend
+        run: |
+          echo "🔨 Building Hasura Console..."
+          npm run build || npm run build:prod || echo "Build command may vary"
+
+      - name: Prepare release artifacts
+        run: |
+          echo "📦 Preparing release artifacts..."
+          
+          # 查找构建输出目录
+          if [ -d "temp_hasura/frontend/dist" ]; then
+            BUILD_DIR="temp_hasura/frontend/dist"
+          elif [ -d "temp_hasura/frontend/build" ]; then
+            BUILD_DIR="temp_hasura/frontend/build"
+          elif [ -d "temp_hasura/frontend/out" ]; then
+            BUILD_DIR="temp_hasura/frontend/out"
+          else
+            echo "❌ Build directory not found"
+            exit 1
+          fi
+          
+          echo "Found build directory: $BUILD_DIR"
+          
+          # 创建发布目录
+          mkdir -p hasura-console-release
+          cp -r $BUILD_DIR/* hasura-console-release/
+          
+          # 创建压缩包
+          cd hasura-console-release
+          tar -czf ../hasura-console.tar.gz .
+          zip -r ../hasura-console.zip .
+          cd ..
+          
+          # 生成 SHA256 校验和
+          sha256sum hasura-console.tar.gz > hasura-console.tar.gz.sha256
+          sha256sum hasura-console.zip > hasura-console.zip.sha256
+          
+          echo "✅ Release artifacts prepared"
+          ls -lh hasura-console.*
+
+      - name: Get version info
+        id: version_info
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          else
+            VERSION="console-${{ steps.hasura_version.outputs.version }}-$(date +%Y%m%d-%H%M%S)"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version_info.outputs.version }}
+          release_name: Hasura Console ${{ steps.version_info.outputs.version }}
+          body: |
+            ## Hasura Console Build
+            
+            基于 Hasura GraphQL Engine ${{ steps.hasura_version.outputs.version }} 构建的 Console。
+            
+            ### 下载说明
+            
+            下载 `hasura-console.tar.gz` 或 `hasura-console.zip` 并解压到项目的 `hasura-console` 目录。
+            
+            ```bash
+            # 使用 tar.gz
+            wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version_info.outputs.version }}/hasura-console.tar.gz
+            mkdir -p hasura-console
+            tar -xzf hasura-console.tar.gz -C hasura-console
+            
+            # 或使用 zip
+            wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version_info.outputs.version }}/hasura-console.zip
+            unzip hasura-console.zip -d hasura-console
+            ```
+            
+            ### 校验文件完整性
+            
+            ```bash
+            sha256sum -c hasura-console.tar.gz.sha256
+            ```
+            
+            ### 构建信息
+            - Hasura 版本: ${{ steps.hasura_version.outputs.version }}
+            - 构建时间: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+            - 构建环境: Ubuntu Latest, Node.js 18
+          draft: false
+          prerelease: false
+
+      - name: Upload tar.gz
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./hasura-console.tar.gz
+          asset_name: hasura-console.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload tar.gz checksum
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./hasura-console.tar.gz.sha256
+          asset_name: hasura-console.tar.gz.sha256
+          asset_content_type: text/plain
+
+      - name: Upload zip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./hasura-console.zip
+          asset_name: hasura-console.zip
+          asset_content_type: application/zip
+
+      - name: Upload zip checksum
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./hasura-console.zip.sha256
+          asset_name: hasura-console.zip.sha256
+          asset_content_type: text/plain
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf temp_hasura
+          rm -rf hasura-console-release

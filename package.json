@@ -1,0 +1,42 @@
+{
+  "name": "hasura-console-postgraphile",
+  "version": "1.0.0",
+  "description": "Hasura Console adapter for PostGraphile v5",
+  "main": "dist/server.js",
+  "scripts": {
+    "sync": "bash sync-hasura-console.sh --from-release",
+    "sync:source": "bash sync-hasura-console.sh --from-source",
+    "download": "bash download-console.sh",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "setup": "npm install && npm run sync",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "hasura",
+    "postgraphile",
+    "graphql",
+    "console",
+    "adapter"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

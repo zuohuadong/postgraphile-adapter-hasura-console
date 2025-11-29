@@ -1,0 +1,80 @@
+# PostGraphile v5 配置文件
+# 用于 Hasura Console 适配
+
+database:
+  # 数据库连接
+  connection: ${DATABASE_URL}
+  
+  # 要暴露的 schema
+  schemas:
+    - public
+  
+  # 数据库选项
+  options:
+    dynamicJson: true
+    ignoreRBAC: false
+    ignoreIndexes: false
+
+server:
+  # 服务器配置
+  port: 5000
+  host: localhost
+  
+graphql:
+  # GraphQL 端点配置
+  endpoint: /graphql
+  graphiql: true
+  
+  # GraphQL 选项
+  options:
+    watchPg: true
+    enhanceGraphiql: true
+    enableQueryBatching: true
+    legacyRelations: omit
+
+# 表配置
+tables:
+  - table:
+      schema: public
+      name: users
+    select_permissions:
+      - role: user
+        permission:
+          columns: ['id', 'name', 'email']
+          filter: {}
+    
+  - table:
+      schema: public
+      name: posts
+    select_permissions:
+      - role: user
+        permission:
+          columns: '*'
+          filter: {}
+
+# 关系配置
+relationships:
+  - name: user_posts
+    type: array
+    from_table:
+      schema: public
+      name: users
+    to_table:
+      schema: public
+      name: posts
+    mapping:
+      id: user_id
+
+# 权限配置
+permissions:
+  default_role: anonymous
+  roles:
+    - anonymous
+    - user
+    - admin
+
+# 功能开关
+features:
+  allowIntrospection: true
+  enableSubscriptions: true
+  enableMutations: true

@@ -1,0 +1,52 @@
+name: Scheduled Console Build
+
+on:
+  schedule:
+    # 每周一凌晨 2 点自动构建（UTC 时间）
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Hasura latest release
+        id: hasura_release
+        run: |
+          LATEST_RELEASE=$(curl -s https://api.github.com/repos/hasura/graphql-engine/releases/latest | jq -r .tag_name)
+          echo "latest=$LATEST_RELEASE" >> $GITHUB_OUTPUT
+          echo "Latest Hasura release: $LATEST_RELEASE"
+
+      - name: Check if release exists
+        id: check_release
+        run: |
+          RELEASE_TAG="console-${{ steps.hasura_release.outputs.latest }}"
+          if gh release view $RELEASE_TAG > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Release $RELEASE_TAG already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Release $RELEASE_TAG does not exist, will build"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trigger build workflow
+        if: steps.check_release.outputs.exists == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'build-console.yml',
+              ref: 'main',
+              inputs: {
+                hasura_version: '${{ steps.hasura_release.outputs.latest }}'
+              }
+            });
+            console.log('Triggered build for Hasura version: ${{ steps.hasura_release.outputs.latest }}');
