@@ -54,34 +54,76 @@ jobs:
           corepack enable
           corepack prepare yarn@stable --activate
 
+      - name: Check package.json
+        working-directory: temp_hasura/frontend
+        run: |
+          echo "� IChecking package.json scripts..."
+          cat package.json | jq '.scripts' || cat package.json | grep -A 30 '"scripts"'
+          
       - name: Install Hasura Console dependencies
         working-directory: temp_hasura/frontend
         run: |
           echo "📦 Installing dependencies with Yarn..."
           yarn install
           
-      - name: Package Hasura Console
+      - name: Build Hasura Console
+        working-directory: temp_hasura/frontend
         run: |
-          echo "📦 Packaging Hasura Console..."
-          echo "ℹ️  Hasura Console 作为开发服务器运行，打包完整源码和依赖"
+          echo "🔨 Building Hasura Console..."
+          # 检查并运行可用的构建命令
+          if grep -q '"build"' package.json; then
+            echo "Found 'build' script, running..."
+            yarn build
+          elif grep -q '"server:build"' package.json; then
+            echo "Found 'server:build' script, running..."
+            yarn server:build
+          elif grep -q '"webpack:build"' package.json; then
+            echo "Found 'webpack:build' script, running..."
+            yarn webpack:build
+          else
+            echo "⚠️  No build script found, will package source files"
+            echo "BUILD_TYPE=source" >> $GITHUB_ENV
+          fi
 
       - name: Prepare release artifacts
         run: |
           echo "📦 Preparing release artifacts..."
           
-          # 使用整个 frontend 目录
-          BUILD_DIR="temp_hasura/frontend"
-          echo "Using directory: $BUILD_DIR"
+          # 查找构建输出目录
+          if [ -d "temp_hasura/frontend/dist" ]; then
+            BUILD_DIR="temp_hasura/frontend/dist"
+            echo "✅ Found build output: $BUILD_DIR"
+            BUILD_TYPE="static"
+          elif [ -d "temp_hasura/frontend/build" ]; then
+            BUILD_DIR="temp_hasura/frontend/build"
+            echo "✅ Found build output: $BUILD_DIR"
+            BUILD_TYPE="static"
+          elif [ -d "temp_hasura/frontend/static" ]; then
+            BUILD_DIR="temp_hasura/frontend/static"
+            echo "✅ Found static output: $BUILD_DIR"
+            BUILD_TYPE="static"
+          else
+            BUILD_DIR="temp_hasura/frontend"
+            echo "⚠️  No build output found, using source directory"
+            BUILD_TYPE="source"
+          fi
           
           # 创建发布目录
           mkdir -p hasura-console-release
           
-          # 复制所有文件，排除不必要的文件
-          rsync -av --exclude='.git' \
-                    --exclude='node_modules/.cache' \
-                    --exclude='.yarn/cache' \
-                    --exclude='*.log' \
-                    "$BUILD_DIR/" hasura-console-release/
+          if [ "$BUILD_TYPE" = "static" ]; then
+            # 如果是构建输出，直接复制
+            echo "📦 Packaging static build..."
+            cp -r "$BUILD_DIR"/* hasura-console-release/
+          else
+            # 如果是源码，排除不必要的文件
+            echo "📦 Packaging source files..."
+            rsync -av --exclude='.git' \
+                      --exclude='node_modules/.cache' \
+                      --exclude='.yarn/cache' \
+                      --exclude='*.log' \
+                      "$BUILD_DIR/" hasura-console-release/
+          fi
           
           # 创建压缩包
           cd hasura-console-release
