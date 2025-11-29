@@ -84,19 +84,21 @@ git push origin v1.0.0
 
 在使用下载脚本前，需要修改以下文件中的仓库信息：
 
+脚本已配置为使用仓库：`zuohuadong/postgraphile-adapter-hasura-console`
+
+如需修改，可以编辑以下文件：
+
 ### 1. sync-hasura-console.sh
 
 ```bash
-RELEASE_REPO="${RELEASE_REPO:-your-username/postgraphile-hasura-console}"
+RELEASE_REPO="${RELEASE_REPO:-zuohuadong/postgraphile-adapter-hasura-console}"
 ```
 
 ### 2. download-console.sh
 
 ```bash
-RELEASE_REPO="${RELEASE_REPO:-your-username/postgraphile-hasura-console}"
+RELEASE_REPO="${RELEASE_REPO:-zuohuadong/postgraphile-adapter-hasura-console}"
 ```
-
-将 `your-username/postgraphile-hasura-console` 替换为你的实际仓库地址。
 
 ## 测试
 

@@ -200,13 +200,7 @@ git push origin v1.0.0
 
 ### 使用预构建版本
 
-修改 `sync-hasura-console.sh` 和 `download-console.sh` 中的仓库地址：
-
-```bash
-RELEASE_REPO="your-username/postgraphile-hasura-console"
-```
-
-然后运行：
+直接运行：
 
 ```bash
 npm run sync  # 从 Release 下载

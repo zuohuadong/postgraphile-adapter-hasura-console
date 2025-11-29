@@ -11,7 +11,7 @@ TARGET_DIR="hasura-console"
 BRANCH="master"
 
 # 从 GitHub Release 下载的仓库（需要修改为你的仓库）
-RELEASE_REPO="${RELEASE_REPO:-your-username/postgraphile-hasura-console}"
+RELEASE_REPO="${RELEASE_REPO:-zuohuadong/postgraphile-adapter-hasura-console}"
 RELEASE_VERSION="${RELEASE_VERSION:-latest}"
 
 show_usage() {

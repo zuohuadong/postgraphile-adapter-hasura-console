@@ -5,7 +5,7 @@
 set -e
 
 # 配置（请修改为你的仓库信息）
-RELEASE_REPO="${RELEASE_REPO:-your-username/postgraphile-hasura-console}"
+RELEASE_REPO="${RELEASE_REPO:-zuohuadong/postgraphile-adapter-hasura-console}"
 RELEASE_VERSION="${1:-latest}"
 TARGET_DIR="hasura-console"
 
