@@ -50,7 +50,7 @@ jobs:
         working-directory: temp_hasura/frontend
         run: |
           echo "📦 Installing dependencies..."
-          npm ci || npm install
+          npm install
 
       - name: Build Hasura Console
         working-directory: temp_hasura/frontend
