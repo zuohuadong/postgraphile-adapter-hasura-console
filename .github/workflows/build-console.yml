@@ -94,6 +94,13 @@ jobs:
         run: |
           echo "📦 Preparing release artifacts..."
           
+          # 调试：查看目录结构
+          echo "📁 Checking temp_hasura/console structure:"
+          ls -la temp_hasura/console/ || true
+          
+          echo "📁 Checking for build directories:"
+          find temp_hasura/console -maxdepth 2 -type d -name "dist" -o -name "build" -o -name "static" || true
+          
           # 查找构建输出目录
           if [ -d "temp_hasura/console/dist" ]; then
             BUILD_DIR="temp_hasura/console/dist"
@@ -113,13 +120,17 @@ jobs:
             BUILD_TYPE="source"
           fi
           
+          echo "📂 Using directory: $BUILD_DIR"
+          echo "📊 Directory contents:"
+          ls -lah "$BUILD_DIR" | head -20
+          
           # 创建发布目录
           mkdir -p hasura-console-release
           
           if [ "$BUILD_TYPE" = "static" ]; then
             # 如果是构建输出，直接复制
             echo "📦 Packaging static build..."
-            cp -r "$BUILD_DIR"/* hasura-console-release/
+            cp -rv "$BUILD_DIR"/* hasura-console-release/ 2>&1 | head -20
           else
             # 如果是源码，排除不必要的文件
             echo "📦 Packaging source files..."
@@ -127,8 +138,12 @@ jobs:
                       --exclude='node_modules/.cache' \
                       --exclude='.yarn/cache' \
                       --exclude='*.log' \
-                      "$BUILD_DIR/" hasura-console-release/
+                      "$BUILD_DIR/" hasura-console-release/ 2>&1 | head -50
           fi
+          
+          echo "📊 Release directory contents:"
+          ls -lah hasura-console-release/ | head -20
+          du -sh hasura-console-release/
           
           # 创建压缩包
           cd hasura-console-release
