@@ -54,58 +54,34 @@ jobs:
           corepack enable
           corepack prepare yarn@stable --activate
 
-      - name: Check available scripts
-        working-directory: temp_hasura/frontend
-        run: |
-          echo "� Cnhecking package.json scripts..."
-          cat package.json | grep -A 20 '"scripts"' || true
-
       - name: Install Hasura Console dependencies
         working-directory: temp_hasura/frontend
         run: |
-          echo "� Inistalling dependencies with Yarn..."
+          echo "📦 Installing dependencies with Yarn..."
           yarn install
-
-      - name: Build Hasura Console
-        working-directory: temp_hasura/frontend
+          
+      - name: Package Hasura Console
         run: |
-          echo "🔨 Building Hasura Console..."
-          # 尝试不同的构建命令
-          if yarn run server:build 2>/dev/null; then
-            echo "✅ Built with server:build"
-          elif yarn run build:server 2>/dev/null; then
-            echo "✅ Built with build:server"
-          elif yarn run build:console 2>/dev/null; then
-            echo "✅ Built with build:console"
-          else
-            echo "⚠️ No build command found, using source files directly"
-          fi
+          echo "📦 Packaging Hasura Console..."
+          echo "ℹ️  Hasura Console 作为开发服务器运行，打包完整源码和依赖"
 
       - name: Prepare release artifacts
         run: |
           echo "📦 Preparing release artifacts..."
           
-          # 查找构建输出目录或使用源码
-          if [ -d "temp_hasura/frontend/dist" ]; then
-            BUILD_DIR="temp_hasura/frontend/dist"
-            echo "Found build directory: $BUILD_DIR"
-          elif [ -d "temp_hasura/frontend/build" ]; then
-            BUILD_DIR="temp_hasura/frontend/build"
-            echo "Found build directory: $BUILD_DIR"
-          elif [ -d "temp_hasura/frontend/out" ]; then
-            BUILD_DIR="temp_hasura/frontend/out"
-            echo "Found build directory: $BUILD_DIR"
-          elif [ -d "temp_hasura/frontend/static" ]; then
-            BUILD_DIR="temp_hasura/frontend/static"
-            echo "Found static directory: $BUILD_DIR"
-          else
-            echo "⚠️ No build directory found, using entire frontend directory"
-            BUILD_DIR="temp_hasura/frontend"
-          fi
+          # 使用整个 frontend 目录
+          BUILD_DIR="temp_hasura/frontend"
+          echo "Using directory: $BUILD_DIR"
           
           # 创建发布目录
           mkdir -p hasura-console-release
-          cp -r $BUILD_DIR/* hasura-console-release/
+          
+          # 复制所有文件，排除不必要的文件
+          rsync -av --exclude='.git' \
+                    --exclude='node_modules/.cache' \
+                    --exclude='.yarn/cache' \
+                    --exclude='*.log' \
+                    "$BUILD_DIR/" hasura-console-release/
           
           # 创建压缩包
           cd hasura-console-release
@@ -139,7 +115,9 @@ jobs:
           body: |
             ## Hasura Console Build
             
-            基于 Hasura GraphQL Engine ${{ steps.hasura_version.outputs.version }} 构建的 Console。
+            基于 Hasura GraphQL Engine ${{ steps.hasura_version.outputs.version }} 的 Console 源码包（包含依赖）。
+            
+            **注意**: Hasura Console 是作为开发服务器运行的，此包包含完整的源码和 node_modules。
             
             ### 下载说明
             
@@ -156,6 +134,15 @@ jobs:
             unzip hasura-console.zip -d hasura-console
             ```
             
+            ### 使用说明
+            
+            下载后，在 hasura-console 目录中运行开发服务器：
+            
+            ```bash
+            cd hasura-console
+            yarn start
+            ```
+            
             ### 校验文件完整性
             
             ```bash
@@ -164,8 +151,9 @@ jobs:
             
             ### 构建信息
             - Hasura 版本: ${{ steps.hasura_version.outputs.version }}
-            - 构建时间: ${{ github.event.head_commit.timestamp }}
+            - 打包时间: ${{ github.run_id }}
             - 构建环境: Ubuntu Latest, Node.js 18
+            - 包含内容: 源码 + node_modules
           files: |
             hasura-console.tar.gz
             hasura-console.tar.gz.sha256
