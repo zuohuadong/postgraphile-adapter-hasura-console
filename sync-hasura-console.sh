@@ -115,14 +115,8 @@ build_from_source() {
     cd "$TEMP_DIR/frontend"
     yarn install
     
-    echo "🔨 构建 Console..."
-    if grep -q '"build"' package.json; then
-        yarn build
-    elif grep -q '"build:prod"' package.json; then
-        yarn build:prod
-    else
-        echo "⚠️  未找到构建脚本，将复制源文件"
-    fi
+    echo "🔨 构建 Console (Enterprise Edition)..."
+    yarn build:ee
     
     cd ../..
     
@@ -130,13 +124,19 @@ build_from_source() {
     echo "📁 准备目标目录..."
     mkdir -p "$TARGET_DIR"
     
-    # 查找构建输出 - 检查多个可能的位置
+    # 查找构建输出 - EE 版本
     echo "📁 查找构建输出..."
-    if [ -d "$TEMP_DIR/frontend/apps/console-ce/dist" ]; then
-        echo "📋 复制构建输出 (apps/console-ce/dist)..."
+    if [ -d "$TEMP_DIR/frontend/apps/console-ee/dist" ]; then
+        echo "📋 复制 EE 构建输出 (apps/console-ee/dist)..."
+        rsync -av --delete "$TEMP_DIR/frontend/apps/console-ee/dist/" "$TARGET_DIR/" 2>/dev/null || cp -r "$TEMP_DIR/frontend/apps/console-ee/dist/"* "$TARGET_DIR/"
+    elif [ -d "$TEMP_DIR/frontend/apps/console-ee/build" ]; then
+        echo "📋 复制 EE 构建输出 (apps/console-ee/build)..."
+        rsync -av --delete "$TEMP_DIR/frontend/apps/console-ee/build/" "$TARGET_DIR/" 2>/dev/null || cp -r "$TEMP_DIR/frontend/apps/console-ee/build/"* "$TARGET_DIR/"
+    elif [ -d "$TEMP_DIR/frontend/apps/console-ce/dist" ]; then
+        echo "📋 复制 CE 构建输出 (apps/console-ce/dist)..."
         rsync -av --delete "$TEMP_DIR/frontend/apps/console-ce/dist/" "$TARGET_DIR/" 2>/dev/null || cp -r "$TEMP_DIR/frontend/apps/console-ce/dist/"* "$TARGET_DIR/"
     elif [ -d "$TEMP_DIR/frontend/apps/console-ce/build" ]; then
-        echo "📋 复制构建输出 (apps/console-ce/build)..."
+        echo "📋 复制 CE 构建输出 (apps/console-ce/build)..."
         rsync -av --delete "$TEMP_DIR/frontend/apps/console-ce/build/" "$TARGET_DIR/" 2>/dev/null || cp -r "$TEMP_DIR/frontend/apps/console-ce/build/"* "$TARGET_DIR/"
     elif [ -d "$TEMP_DIR/frontend/dist" ]; then
         echo "📋 复制构建输出 (dist)..."
@@ -144,9 +144,6 @@ build_from_source() {
     elif [ -d "$TEMP_DIR/frontend/build" ]; then
         echo "📋 复制构建输出 (build)..."
         rsync -av --delete "$TEMP_DIR/frontend/build/" "$TARGET_DIR/" 2>/dev/null || cp -r "$TEMP_DIR/frontend/build/"* "$TARGET_DIR/"
-    elif [ -d "$TEMP_DIR/frontend/public" ]; then
-        echo "📋 复制静态文件 (public)..."
-        rsync -av --delete "$TEMP_DIR/frontend/public/" "$TARGET_DIR/" 2>/dev/null || cp -r "$TEMP_DIR/frontend/public/"* "$TARGET_DIR/"
     else
         echo "⚠️  未找到构建输出，查找所有可能的目录..."
         find "$TEMP_DIR/frontend" -type d \( -name "dist" -o -name "build" \) -print

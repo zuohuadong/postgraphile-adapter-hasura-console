@@ -73,31 +73,15 @@ jobs:
           echo "📦 Installing dependencies with Yarn..."
           yarn install
           
-      - name: Build Hasura Console
+      - name: Build Hasura Console (EE)
         working-directory: temp_hasura/frontend
         run: |
-          echo "🔨 Building Hasura Console..."
-          echo "📋 Available scripts:"
-          cat package.json | grep -A 20 '"scripts"' || true
-          
-          # 检查并运行可用的构建命令
-          if grep -q '"build"' package.json; then
-            echo "Found 'build' script, running..."
-            yarn build
-          elif grep -q '"build:prod"' package.json; then
-            echo "Found 'build:prod' script, running..."
-            yarn build:prod
-          elif grep -q '"build:production"' package.json; then
-            echo "Found 'build:production' script, running..."
-            yarn build:production
-          else
-            echo "⚠️  No build script found, will package source files"
-            echo "BUILD_TYPE=source" >> $GITHUB_ENV
-          fi
+          echo "🔨 Building Hasura Console Enterprise Edition..."
+          yarn build:ee
           
           echo ""
           echo "📁 Checking build output directories:"
-          find . -maxdepth 3 -type d \( -name "dist" -o -name "build" -o -name "static" -o -name "public" \) -exec ls -lah {} \;
+          find . -maxdepth 4 -type d \( -name "dist" -o -name "build" -o -name "static" -o -name "public" \) -exec echo "Found: {}" \; -exec ls -lah {} \; 2>/dev/null | head -100
 
       - name: Prepare release artifacts
         run: |
@@ -119,14 +103,22 @@ jobs:
           echo "📁 Checking packages subdirectory:"
           ls -la temp_hasura/frontend/packages/ 2>/dev/null || echo "No packages directory"
           
-          # 查找构建输出目录 - 检查多个可能的位置
-          if [ -d "temp_hasura/frontend/apps/console-ce/dist" ]; then
+          # 查找构建输出目录 - EE 版本
+          if [ -d "temp_hasura/frontend/apps/console-ee/dist" ]; then
+            BUILD_DIR="temp_hasura/frontend/apps/console-ee/dist"
+            echo "✅ Found EE build output: $BUILD_DIR"
+            BUILD_TYPE="static"
+          elif [ -d "temp_hasura/frontend/apps/console-ee/build" ]; then
+            BUILD_DIR="temp_hasura/frontend/apps/console-ee/build"
+            echo "✅ Found EE build output: $BUILD_DIR"
+            BUILD_TYPE="static"
+          elif [ -d "temp_hasura/frontend/apps/console-ce/dist" ]; then
             BUILD_DIR="temp_hasura/frontend/apps/console-ce/dist"
-            echo "✅ Found build output: $BUILD_DIR"
+            echo "✅ Found CE build output: $BUILD_DIR"
             BUILD_TYPE="static"
           elif [ -d "temp_hasura/frontend/apps/console-ce/build" ]; then
             BUILD_DIR="temp_hasura/frontend/apps/console-ce/build"
-            echo "✅ Found build output: $BUILD_DIR"
+            echo "✅ Found CE build output: $BUILD_DIR"
             BUILD_TYPE="static"
           elif [ -d "temp_hasura/frontend/dist" ]; then
             BUILD_DIR="temp_hasura/frontend/dist"
@@ -135,10 +127,6 @@ jobs:
           elif [ -d "temp_hasura/frontend/build" ]; then
             BUILD_DIR="temp_hasura/frontend/build"
             echo "✅ Found build output: $BUILD_DIR"
-            BUILD_TYPE="static"
-          elif [ -d "temp_hasura/frontend/public" ]; then
-            BUILD_DIR="temp_hasura/frontend/public"
-            echo "✅ Found static output: $BUILD_DIR"
             BUILD_TYPE="static"
           else
             BUILD_DIR="temp_hasura/frontend"
