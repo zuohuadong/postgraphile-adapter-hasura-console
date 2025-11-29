@@ -46,17 +46,22 @@ jobs:
             git checkout ${{ steps.hasura_version.outputs.version }}
           fi
 
+      - name: Setup Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@stable --activate
+
       - name: Install Hasura Console dependencies
         working-directory: temp_hasura/frontend
         run: |
-          echo "📦 Installing dependencies..."
-          npm install
+          echo "📦 Installing dependencies with Yarn..."
+          yarn install
 
       - name: Build Hasura Console
         working-directory: temp_hasura/frontend
         run: |
           echo "🔨 Building Hasura Console..."
-          npm run build || npm run build:prod || echo "Build command may vary"
+          yarn build || yarn build:prod || echo "Build command may vary"
 
       - name: Prepare release artifacts
         run: |
